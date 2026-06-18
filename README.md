@@ -9,13 +9,13 @@ line. It ships with a login page and a profile settings page.
 Same stack as the companion `timetable` app:
 
 **Backend**
-- PHP 8.2+ / Symfony 7.2
+- PHP 8.4+ / Symfony 8.1
 - JWT authentication (`lexik/jwt-authentication-bundle` + `gesdinet/jwt-refresh-token-bundle`)
-- Doctrine ORM 3 (SQLite by default, MySQL/Postgres ready)
+- Doctrine ORM 3 / DoctrineBundle 3 (SQLite by default, MySQL/Postgres ready)
 
 **Frontend**
-- React 18 + TypeScript
-- Vite 6
+- React 19 + TypeScript
+- Vite 8
 - Tailwind CSS v3
 - TanStack Query (data fetching) + Zustand (auth state)
 
