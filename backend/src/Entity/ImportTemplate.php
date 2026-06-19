@@ -49,6 +49,31 @@ class ImportTemplate
     #[ORM\Column]
     private bool $importTranslations = false;
 
+    /** CSV delimiter (only meaningful when fileFormat = csv). */
+    #[ORM\Column(name: 'csv_delimiter', length: 10, nullable: true)]
+    private ?string $delimiter = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $ftpServer = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $ftpUsername = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $ftpPassword = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $ftpPort = null;
+
+    #[ORM\Column(length: 1000, nullable: true)]
+    private ?string $ftpPath = null;
+
+    #[ORM\Column]
+    private bool $ftpPassiveMode = true;
+
+    #[ORM\Column]
+    private bool $removeAfterImport = false;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $originalFilename = null;
 
@@ -176,6 +201,102 @@ class ImportTemplate
     public function setImportTranslations(bool $importTranslations): static
     {
         $this->importTranslations = $importTranslations;
+
+        return $this;
+    }
+
+    public function getDelimiter(): ?string
+    {
+        return $this->delimiter;
+    }
+
+    public function setDelimiter(?string $delimiter): static
+    {
+        $this->delimiter = $delimiter;
+
+        return $this;
+    }
+
+    public function getFtpServer(): ?string
+    {
+        return $this->ftpServer;
+    }
+
+    public function setFtpServer(?string $ftpServer): static
+    {
+        $this->ftpServer = $ftpServer;
+
+        return $this;
+    }
+
+    public function getFtpUsername(): ?string
+    {
+        return $this->ftpUsername;
+    }
+
+    public function setFtpUsername(?string $ftpUsername): static
+    {
+        $this->ftpUsername = $ftpUsername;
+
+        return $this;
+    }
+
+    public function getFtpPassword(): ?string
+    {
+        return $this->ftpPassword;
+    }
+
+    public function setFtpPassword(?string $ftpPassword): static
+    {
+        $this->ftpPassword = $ftpPassword;
+
+        return $this;
+    }
+
+    public function getFtpPort(): ?int
+    {
+        return $this->ftpPort;
+    }
+
+    public function setFtpPort(?int $ftpPort): static
+    {
+        $this->ftpPort = $ftpPort;
+
+        return $this;
+    }
+
+    public function getFtpPath(): ?string
+    {
+        return $this->ftpPath;
+    }
+
+    public function setFtpPath(?string $ftpPath): static
+    {
+        $this->ftpPath = $ftpPath;
+
+        return $this;
+    }
+
+    public function isFtpPassiveMode(): bool
+    {
+        return $this->ftpPassiveMode;
+    }
+
+    public function setFtpPassiveMode(bool $ftpPassiveMode): static
+    {
+        $this->ftpPassiveMode = $ftpPassiveMode;
+
+        return $this;
+    }
+
+    public function isRemoveAfterImport(): bool
+    {
+        return $this->removeAfterImport;
+    }
+
+    public function setRemoveAfterImport(bool $removeAfterImport): static
+    {
+        $this->removeAfterImport = $removeAfterImport;
 
         return $this;
     }

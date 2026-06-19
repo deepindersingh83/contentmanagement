@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, FileSpreadsheet, Trash2, Upload } from 'lucide-react'
+import { Plus, FileSpreadsheet, Trash2, Upload, Copy, Download } from 'lucide-react'
 import { importApi } from '../api/import'
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -19,6 +19,11 @@ export default function ImportList() {
 
   const removeMutation = useMutation({
     mutationFn: importApi.remove,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['import-templates'] }),
+  })
+
+  const duplicateMutation = useMutation({
+    mutationFn: importApi.duplicate,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['import-templates'] }),
   })
 
@@ -81,16 +86,29 @@ export default function ImportList() {
                   <td className="px-4 py-3 text-gray-600">{SOURCE_LABELS[t.source] ?? t.source}</td>
                   <td className="px-4 py-3 text-gray-600 uppercase">{t.fileFormat}</td>
                   <td className="px-4 py-3 text-gray-600">{t.originalFilename ?? '—'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => {
-                        if (confirm(`Delete import "${t.name}"?`)) removeMutation.mutate(t.id)
-                      }}
-                      className="text-gray-400 hover:text-red-600"
-                      aria-label="Delete import"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-4 text-sm">
+                      <button
+                        onClick={() => duplicateMutation.mutate(t.id)}
+                        className="inline-flex items-center gap-1 text-gray-500 hover:text-indigo-600"
+                      >
+                        <Copy size={15} /> Duplicate
+                      </button>
+                      <button
+                        onClick={() => importApi.download(t.id, t.name)}
+                        className="inline-flex items-center gap-1 text-gray-500 hover:text-indigo-600"
+                      >
+                        <Download size={15} /> Download
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete import "${t.name}"?`)) removeMutation.mutate(t.id)
+                        }}
+                        className="inline-flex items-center gap-1 text-gray-500 hover:text-red-600"
+                      >
+                        <Trash2 size={15} /> Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

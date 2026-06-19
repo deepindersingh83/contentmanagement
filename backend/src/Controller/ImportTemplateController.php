@@ -94,6 +94,19 @@ class ImportTemplateController extends AbstractController
         $template->setZipArchive($this->boolParam($request, 'zipArchive', false));
         $template->setImportTranslations($this->boolParam($request, 'importTranslations', false));
 
+        // CSV delimiter (only relevant for csv).
+        $template->setDelimiter($fileFormat === 'csv' ? $this->nullableString($request->request->get('delimiter')) : null);
+
+        // FTP / sFTP connection details.
+        $template->setFtpServer($this->nullableString($request->request->get('ftpServer')));
+        $template->setFtpUsername($this->nullableString($request->request->get('ftpUsername')));
+        $template->setFtpPassword($this->nullableString($request->request->get('ftpPassword')));
+        $port = $request->request->get('ftpPort');
+        $template->setFtpPort(($port !== null && $port !== '') ? (int) $port : null);
+        $template->setFtpPath($this->nullableString($request->request->get('ftpPath')));
+        $template->setFtpPassiveMode($this->boolParam($request, 'ftpPassiveMode', true));
+        $template->setRemoveAfterImport($this->boolParam($request, 'removeAfterImport', false));
+
         // Store the uploaded file (only meaningful for a direct upload).
         $file = $request->files->get('file');
         if ($file !== null) {
@@ -107,6 +120,59 @@ class ImportTemplateController extends AbstractController
         $this->em->flush();
 
         return $this->json($this->serialize($template), 201);
+    }
+
+    /**
+     * Duplicates an existing template (config only — not the stored file).
+     */
+    #[Route('/{id}/duplicate', name: 'api_import_templates_duplicate', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function duplicate(#[CurrentUser] ?User $user, ImportTemplate $source): JsonResponse
+    {
+        if ($user === null || $source->getOwner()?->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+
+        $copy = new ImportTemplate();
+        $copy->setOwner($user);
+        $copy->setName($source->getName().' copy');
+        $copy->setSupplier($source->getSupplier());
+        $copy->setSource($source->getSource());
+        $copy->setSourceUrl($source->getSourceUrl());
+        $copy->setFileFormat($source->getFileFormat());
+        $copy->setKeyField($source->getKeyField());
+        $copy->setFirstRowHeaders($source->isFirstRowHeaders());
+        $copy->setZipArchive($source->isZipArchive());
+        $copy->setImportTranslations($source->isImportTranslations());
+        $copy->setDelimiter($source->getDelimiter());
+        $copy->setFtpServer($source->getFtpServer());
+        $copy->setFtpUsername($source->getFtpUsername());
+        $copy->setFtpPassword($source->getFtpPassword());
+        $copy->setFtpPort($source->getFtpPort());
+        $copy->setFtpPath($source->getFtpPath());
+        $copy->setFtpPassiveMode($source->isFtpPassiveMode());
+        $copy->setRemoveAfterImport($source->isRemoveAfterImport());
+
+        $this->em->persist($copy);
+        $this->em->flush();
+
+        return $this->json($this->serialize($copy), 201);
+    }
+
+    /**
+     * Downloads the template configuration as a JSON file.
+     */
+    #[Route('/{id}/download', name: 'api_import_templates_download', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function download(#[CurrentUser] ?User $user, ImportTemplate $template): JsonResponse
+    {
+        if ($user === null || $template->getOwner()?->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+
+        $response = $this->json($this->serialize($template));
+        $filename = preg_replace('/[^A-Za-z0-9._-]+/', '_', $template->getName()).'.json';
+        $response->headers->set('Content-Disposition', 'attachment; filename="'.$filename.'"');
+
+        return $response;
     }
 
     #[Route('/{id}', name: 'api_import_templates_delete', methods: ['DELETE'], requirements: ['id' => '\d+'])]
@@ -171,6 +237,13 @@ class ImportTemplateController extends AbstractController
             'firstRowHeaders' => $t->isFirstRowHeaders(),
             'zipArchive' => $t->isZipArchive(),
             'importTranslations' => $t->isImportTranslations(),
+            'delimiter' => $t->getDelimiter(),
+            'ftpServer' => $t->getFtpServer(),
+            'ftpUsername' => $t->getFtpUsername(),
+            'ftpPort' => $t->getFtpPort(),
+            'ftpPath' => $t->getFtpPath(),
+            'ftpPassiveMode' => $t->isFtpPassiveMode(),
+            'removeAfterImport' => $t->isRemoveAfterImport(),
             'originalFilename' => $t->getOriginalFilename(),
             'createdAt' => $t->getCreatedAt()->format(\DateTimeInterface::ATOM),
         ];
