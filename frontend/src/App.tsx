@@ -5,6 +5,8 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
+import ImportList from './pages/ImportList'
+import NewImport from './pages/NewImport'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -33,6 +35,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/import"
+          element={
+            <ProtectedRoute>
+              <ImportList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/import/new"
+          element={
+            <ProtectedRoute>
+              <NewImport />
             </ProtectedRoute>
           }
         />

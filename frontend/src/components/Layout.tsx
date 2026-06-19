@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { LayoutGrid, UserCog, LogOut } from 'lucide-react'
+import { LayoutGrid, UserCog, LogOut, Upload } from 'lucide-react'
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuthStore()
@@ -14,7 +14,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   }
 
   const navItem = (to: string, label: string, icon: ReactNode) => {
-    const active = location.pathname === to
+    const active = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
     return (
       <Link
         to={to}
@@ -41,6 +41,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             </Link>
             <nav className="hidden sm:flex items-center gap-1">
               {navItem('/', 'Dashboard', <LayoutGrid size={16} />)}
+              {navItem('/import', 'Import', <Upload size={16} />)}
               {navItem('/profile', 'Profile', <UserCog size={16} />)}
             </nav>
           </div>
