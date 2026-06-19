@@ -14,11 +14,15 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <Layout>{children}</Layout>
 }
 
+// Vite injects BASE_URL from the configured `base` (e.g. "/contentmanagement/frontend/").
+// React Router wants a basename without a trailing slash.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
+
 export default function App() {
   const { isAuthenticated } = useAuthStore()
 
   return (
-    <Router>
+    <Router basename={basename}>
       <Routes>
         <Route
           path="/login"

@@ -59,8 +59,8 @@ apiClient.interceptors.response.use(
 )
 
 function redirectToLogin() {
-  const base = import.meta.env.VITE_BASE_PATH || ''
-  window.location.href = `${base}/login`
+  // BASE_URL already ends with a slash (e.g. "/contentmanagement/frontend/").
+  window.location.href = `${import.meta.env.BASE_URL}login`
 }
 
 export default apiClient
