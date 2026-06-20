@@ -69,6 +69,16 @@ export const importApi = {
     return response.data
   },
 
+  test: async (id: number): Promise<ImportTestResult> => {
+    const response = await apiClient.post<ImportTestResult>(`/import-templates/${id}/test`)
+    return response.data
+  },
+
+  run: async (id: number): Promise<ImportRunResult> => {
+    const response = await apiClient.post<ImportRunResult>(`/import-templates/${id}/run`)
+    return response.data
+  },
+
   create: async (payload: NewImportPayload): Promise<ImportTemplate> => {
     const form = new FormData()
     const append = (k: string, v: string | undefined | null) => {
@@ -123,6 +133,33 @@ export const importApi = {
   remove: async (id: number): Promise<void> => {
     await apiClient.delete(`/import-templates/${id}`)
   },
+}
+
+export interface ImportPreviewRow {
+  supplierRefCode: string
+  title: string | null
+  costPrice: string | null
+  stockQuantity: number
+  weightGrams: string | null
+  willMatchProduct: boolean
+}
+
+export interface ImportTestResult {
+  dryRun: true
+  total: number
+  failed: number
+  preview: ImportPreviewRow[]
+}
+
+export interface ImportRunResult {
+  dryRun: false
+  runId: number
+  status: 'success' | 'partial' | 'failed'
+  total: number
+  created: number
+  updated: number
+  matched: number
+  failed: number
 }
 
 export const DELIMITERS: { value: string; label: string }[] = [

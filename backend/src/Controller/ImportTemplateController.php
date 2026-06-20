@@ -25,7 +25,49 @@ class ImportTemplateController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly ImportTemplateRepository $templates,
         private readonly \App\Repository\SupplierRepository $suppliers,
+        private readonly \App\Service\ImportRunner $importRunner,
     ) {
+    }
+
+    /**
+     * Dry-run the import: parse + map the first rows and return a preview
+     * without writing anything ("Test import").
+     */
+    #[Route('/{id}/test', name: 'api_import_templates_test', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function test(#[CurrentUser] ?User $user, ImportTemplate $template): JsonResponse
+    {
+        if ($user === null || $template->getOwner()?->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+
+        $result = $this->importRunner->run($template, true);
+        if (isset($result['error'])) {
+            return $this->json(['message' => $result['error']], 422);
+        }
+
+        return $this->json($result);
+    }
+
+    /**
+     * Execute the import: upsert supplier offers from the feed and match them to
+     * products ("Import"). The supplier must be set on the template.
+     */
+    #[Route('/{id}/run', name: 'api_import_templates_run', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function runImport(#[CurrentUser] ?User $user, ImportTemplate $template): JsonResponse
+    {
+        if ($user === null || $template->getOwner()?->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+        if ($template->getSupplierRef() === null) {
+            return $this->json(['message' => 'Assign a supplier to this import before running it.'], 422);
+        }
+
+        $result = $this->importRunner->run($template, false);
+        if (isset($result['error'])) {
+            return $this->json(['message' => $result['error']], 422);
+        }
+
+        return $this->json($result);
     }
 
     #[Route('', name: 'api_import_templates_list', methods: ['GET'])]

@@ -51,12 +51,64 @@ export default function ImportSettings() {
 
   const columns = columnsData?.columns ?? []
 
+  const [result, setResult] = useState<React.ReactNode>(null)
+
   const saveMutation = useMutation({
     mutationFn: () => importApi.saveMapping(templateId, mapping),
     onSuccess: () => {
       setSavedMsg('Saved.')
       setTimeout(() => setSavedMsg(''), 2000)
     },
+  })
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      await importApi.saveMapping(templateId, mapping)
+      return importApi.test(templateId)
+    },
+    onSuccess: (r) =>
+      setResult(
+        <div>
+          <p className="font-medium text-gray-800 mb-2">Test import — {r.total} row(s), {r.failed} skipped</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-gray-500"><tr>
+                <th className="text-left py-1 pr-3">Ref</th><th className="text-left py-1 pr-3">Title</th>
+                <th className="text-left py-1 pr-3">Cost</th><th className="text-left py-1 pr-3">Stock</th>
+                <th className="text-left py-1 pr-3">Grams</th><th className="text-left py-1">Matches product</th>
+              </tr></thead>
+              <tbody>
+                {r.preview.map((row, i) => (
+                  <tr key={i} className="border-t border-gray-100">
+                    <td className="py-1 pr-3 font-medium">{row.supplierRefCode}</td>
+                    <td className="py-1 pr-3">{row.title ?? '—'}</td>
+                    <td className="py-1 pr-3">{row.costPrice ?? '—'}</td>
+                    <td className="py-1 pr-3">{row.stockQuantity}</td>
+                    <td className="py-1 pr-3">{row.weightGrams ?? '—'}</td>
+                    <td className="py-1">{row.willMatchProduct ? '✅' : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>,
+      ),
+    onError: (e: any) => setResult(<span className="text-red-700">{e?.response?.data?.message ?? 'Test failed.'}</span>),
+  })
+
+  const runMutation = useMutation({
+    mutationFn: async () => {
+      await importApi.saveMapping(templateId, mapping)
+      return importApi.run(templateId)
+    },
+    onSuccess: (r) =>
+      setResult(
+        <p className="text-gray-800">
+          Import <span className="font-medium">{r.status}</span> — {r.total} rows: {r.created} created, {r.updated} updated,{' '}
+          {r.matched} matched to products, {r.failed} skipped.
+        </p>,
+      ),
+    onError: (e: any) => setResult(<span className="text-red-700">{e?.response?.data?.message ?? 'Import failed.'}</span>),
   })
 
   const activeCategory = CATEGORIES.find((c) => c.key === active)
@@ -228,21 +280,24 @@ export default function ImportSettings() {
           {saveMutation.isPending ? 'Saving…' : 'Save'}
         </button>
         <button
-          onClick={() => alert('Test import will validate the mapping against a few rows — coming in the next step.')}
-          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+          onClick={() => { setResult(null); testMutation.mutate() }}
+          disabled={testMutation.isPending}
+          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
         >
-          Test import
+          {testMutation.isPending ? 'Testing…' : 'Test import'}
         </button>
         <button
-          onClick={() => {
-            saveMutation.mutate()
-            alert('Mapping saved. Running the actual product import is the next milestone.')
-          }}
-          className="px-5 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black"
+          onClick={() => { setResult(null); runMutation.mutate() }}
+          disabled={runMutation.isPending}
+          className="px-5 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-60"
         >
-          Import
+          {runMutation.isPending ? 'Importing…' : 'Import'}
         </button>
       </div>
+
+      {result && (
+        <div className="mt-4 bg-white border border-gray-200 rounded-xl p-4 text-sm">{result}</div>
+      )}
     </div>
   )
 }
