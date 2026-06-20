@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Truck, Trash2, Pencil, X } from 'lucide-react'
+import { Plus, Truck, Trash2, Pencil, X, Warehouse } from 'lucide-react'
 import { suppliersApi, WEIGHT_UNITS, type Supplier, type SupplierPayload } from '../api/suppliers'
 
 const empty: SupplierPayload = {
@@ -73,9 +74,14 @@ export default function Suppliers() {
           <h1 className="text-2xl font-bold text-gray-900">Suppliers</h1>
           <p className="text-sm text-gray-500 mt-1">The suppliers you source products from.</p>
         </div>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
-          <Plus size={16} /> Add supplier
-        </button>
+        <div className="flex items-center gap-3">
+          <Link to="/warehouses" className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+            <Warehouse size={16} /> Warehouses
+          </Link>
+          <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
+            <Plus size={16} /> Add supplier
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
