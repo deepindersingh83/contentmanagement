@@ -13,9 +13,10 @@ use App\Repository\SupplierProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Executes an import: reads the uploaded CSV, applies the field mapping built on
- * the Import settings screen, normalises weights, upserts a supplier offer per
- * row, and matches offers to master products by barcode (GTIN).
+ * Executes an import: fetches the feed (direct/URL/FTP/sFTP, CSV/XLSX/XLS/XML),
+ * applies the field mapping built on the Import settings screen, normalises
+ * weights, upserts a supplier offer per row, and matches offers to master
+ * products by barcode (GTIN).
  */
 final class ImportRunner
 {
@@ -23,7 +24,8 @@ final class ImportRunner
         private readonly EntityManagerInterface $em,
         private readonly SupplierProductRepository $offers,
         private readonly ProductRepository $products,
-        private readonly string $projectDir,
+        private readonly FeedFetcher $fetcher,
+        private readonly FeedReader $reader,
     ) {
     }
 
@@ -32,33 +34,32 @@ final class ImportRunner
      */
     public function run(ImportTemplate $template, bool $dryRun, int $previewLimit = 15): array
     {
-        if ($template->getSource() !== 'direct') {
-            return ['error' => 'Only direct uploads can be run currently (URL/FTP fetching is coming next).'];
-        }
-        if ($template->getFileFormat() !== 'csv') {
-            return ['error' => 'Only CSV files can be processed currently.'];
-        }
-        $stored = $template->getStoredFilename();
-        $path = $stored !== null ? $this->projectDir.'/var/uploads/imports/'.$stored : null;
-        if ($path === null || !is_file($path)) {
-            return ['error' => 'The uploaded file for this template could not be found.'];
+        try {
+            $feed = $this->fetcher->fetch($template);
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage()];
         }
 
-        $delimiter = $template->getDelimiter() ?: ',';
-        if ($delimiter === '\t') {
-            $delimiter = "\t";
+        try {
+            $parsed = $this->reader->read(
+                $feed['path'],
+                $template->getFileFormat(),
+                $template->getDelimiter(),
+                $template->isFirstRowHeaders(),
+            );
+        } finally {
+            if ($feed['cleanup']) {
+                @unlink($feed['path']);
+            }
         }
 
-        $handle = fopen($path, 'r');
-        if ($handle === false) {
-            return ['error' => 'Could not open the uploaded file.'];
+        if ($parsed['headers'] === []) {
+            return ['error' => 'No columns could be read from the feed. Check the format and delimiter.'];
         }
 
         $mapping = $template->getMapping() ?? [];
         $supplier = $template->getSupplierRef();
 
-        $headers = [];
-        $rowIndex = 0;
         $total = 0;
         $created = 0;
         $updated = 0;
@@ -66,40 +67,24 @@ final class ImportRunner
         $failed = 0;
         $preview = [];
 
-        while (($row = fgetcsv($handle, 0, $delimiter, '"', '\\')) !== false) {
-            if ($rowIndex === 0 && $template->isFirstRowHeaders()) {
-                foreach ($row as $i => $h) {
-                    $headers[trim((string) $h)] = $i;
-                }
-                ++$rowIndex;
-                continue;
-            }
-            if ($headers === [] && !$template->isFirstRowHeaders()) {
-                foreach ($row as $i => $_) {
-                    $headers['Column '.($i + 1)] = $i;
-                }
-            }
-            // Skip fully empty lines.
+        foreach ($parsed['rows'] as $row) {
+            // Skip blank rows.
             if (count(array_filter($row, fn ($v) => trim((string) $v) !== '')) === 0) {
-                ++$rowIndex;
                 continue;
             }
-
             ++$total;
-            $get = fn (string $key): ?string => $this->cell($row, $headers, $mapping[$key] ?? null);
 
-            $ref = $get('sku') ?? $this->cellByKeyField($row, $headers, $mapping, $template);
+            $get = fn (string $key): ?string => $this->cell($row, $mapping[$key] ?? null);
+
+            $ref = $get('sku') ?? $this->cellByKeyField($row, $mapping, $template);
             if ($ref === null || $ref === '') {
                 ++$failed;
-                ++$rowIndex;
                 continue;
             }
 
             $barcode = $get('barcode');
-            $weightGrams = WeightConverter::toGrams(
-                $get('weight'),
-                $this->fixed($mapping['weight_unit'] ?? null) ?? $supplier?->getDefaultWeightUnit(),
-            );
+            $weightUnit = $this->fixed($mapping['weight_unit'] ?? null) ?? $supplier?->getDefaultWeightUnit();
+            $weightGrams = WeightConverter::toGrams($get('weight'), $weightUnit);
 
             $data = [
                 'supplierRefCode' => $ref,
@@ -120,13 +105,11 @@ final class ImportRunner
                     $willMatch = $barcode ? ($this->products->findOneBy(['gtin' => $barcode]) !== null) : false;
                     $preview[] = $data + ['willMatchProduct' => $willMatch];
                 }
-                ++$rowIndex;
                 continue;
             }
 
             if ($supplier === null) {
                 ++$failed;
-                ++$rowIndex;
                 continue;
             }
 
@@ -148,11 +131,10 @@ final class ImportRunner
             $offer->setCategoryRaw($data['categoryRaw']);
             $offer->setImageUrl($data['imageUrl']);
             $offer->setWeightValue($data['weightValue']);
-            $offer->setWeightUnit($this->fixed($mapping['weight_unit'] ?? null) ?? $supplier->getDefaultWeightUnit());
+            $offer->setWeightUnit($weightUnit);
             $offer->setWeightGrams($weightGrams);
             $offer->setLastSeenAt(new \DateTimeImmutable());
 
-            // Match to a master product by barcode/GTIN if not already linked.
             if ($offer->getProduct() === null && $barcode) {
                 $product = $this->products->findOneBy(['gtin' => $barcode]);
                 if ($product instanceof Product) {
@@ -164,15 +146,10 @@ final class ImportRunner
             $this->em->persist($offer);
             $isNew ? ++$created : ++$updated;
 
-            // Flush in batches to keep memory bounded on large feeds.
             if (($created + $updated) % 200 === 0) {
                 $this->em->flush();
             }
-
-            ++$rowIndex;
         }
-
-        fclose($handle);
 
         if ($dryRun) {
             return ['dryRun' => true, 'total' => $total, 'failed' => $failed, 'preview' => $preview];
@@ -206,29 +183,23 @@ final class ImportRunner
     }
 
     /**
-     * @param array<int, string> $row
-     * @param array<string, int> $headers
+     * @param array<string, string> $row
      */
-    private function cell(array $row, array $headers, mixed $column): ?string
+    private function cell(array $row, mixed $column): ?string
     {
-        if (!is_string($column) || $column === '' || !array_key_exists($column, $headers)) {
+        if (!is_string($column) || $column === '' || !array_key_exists($column, $row)) {
             return null;
         }
-        $value = $row[$headers[$column]] ?? null;
-        $value = $value === null ? '' : trim((string) $value);
+        $value = trim((string) $row[$column]);
 
         return $value === '' ? null : $value;
     }
 
     /**
-     * Falls back to the template's "key for product identification" column when
-     * no explicit SKU mapping is present.
-     *
-     * @param array<int, string> $row
-     * @param array<string, int> $headers
+     * @param array<string, string> $row
      * @param array<string, mixed> $mapping
      */
-    private function cellByKeyField(array $row, array $headers, array $mapping, ImportTemplate $template): ?string
+    private function cellByKeyField(array $row, array $mapping, ImportTemplate $template): ?string
     {
         $map = [
             'sku' => 'sku',
@@ -239,10 +210,9 @@ final class ImportRunner
         ];
         $field = $map[$template->getKeyField()] ?? 'sku';
 
-        return $this->cell($row, $headers, $mapping[$field] ?? null);
+        return $this->cell($row, $mapping[$field] ?? null);
     }
 
-    /** Fixed-value mapping entries (e.g. weight unit) are stored as plain strings. */
     private function fixed(mixed $value): ?string
     {
         return is_string($value) && $value !== '' ? $value : null;

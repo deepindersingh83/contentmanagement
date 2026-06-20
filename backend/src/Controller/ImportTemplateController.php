@@ -26,6 +26,8 @@ class ImportTemplateController extends AbstractController
         private readonly ImportTemplateRepository $templates,
         private readonly \App\Repository\SupplierRepository $suppliers,
         private readonly \App\Service\ImportRunner $importRunner,
+        private readonly \App\Service\FeedFetcher $feedFetcher,
+        private readonly \App\Service\FeedReader $feedReader,
     ) {
     }
 
@@ -187,33 +189,28 @@ class ImportTemplateController extends AbstractController
             return $this->json(['message' => 'Not found'], 404);
         }
 
-        $columns = [];
-        $note = null;
-        $stored = $template->getStoredFilename();
-
-        if ($stored !== null && $template->getFileFormat() === 'csv') {
-            $path = $this->uploadDir().'/'.$stored;
-            if (is_file($path) && ($handle = fopen($path, 'r')) !== false) {
-                $delimiter = $template->getDelimiter() ?: ',';
-                if ($delimiter === '\t') {
-                    $delimiter = "\t";
-                }
-                $row = fgetcsv($handle, 0, $delimiter, '"', '\\');
-                fclose($handle);
-                if ($row !== false && $row !== null) {
-                    foreach ($row as $i => $value) {
-                        $value = trim((string) $value);
-                        $columns[] = $template->isFirstRowHeaders() && $value !== ''
-                            ? $value
-                            : 'Column '.($i + 1);
-                    }
-                }
-            }
-        } elseif ($template->getFileFormat() !== 'csv') {
-            $note = 'Automatic column detection currently supports CSV files.';
+        try {
+            $feed = $this->feedFetcher->fetch($template);
+        } catch (\RuntimeException $e) {
+            return $this->json(['columns' => [], 'note' => $e->getMessage()]);
         }
 
-        return $this->json(['columns' => $columns, 'note' => $note]);
+        try {
+            $parsed = $this->feedReader->read(
+                $feed['path'],
+                $template->getFileFormat(),
+                $template->getDelimiter(),
+                $template->isFirstRowHeaders(),
+            );
+        } finally {
+            if ($feed['cleanup']) {
+                @unlink($feed['path']);
+            }
+        }
+
+        $note = $parsed['headers'] === [] ? 'No columns could be detected from the feed.' : null;
+
+        return $this->json(['columns' => $parsed['headers'], 'note' => $note]);
     }
 
     /**
