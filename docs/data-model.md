@@ -199,5 +199,9 @@ cheapest in stock) is flagged via `supplier_product.is_primary` /
 - Sell-price rules / margin engine (only `cost_price` and a simple `sell_price`
   are modelled here).
 - Currency conversion between supplier currencies and the store currency.
-- Variant-level sourcing (this models product-level offers; variants can be
-  added as a `product_variant` table later).
+- **Variants.** Suppliers do **not** send variant structure — each feed row is a
+  product-level offer keyed by SKU. If we need variants (size/colour), we'll
+  **derive them ourselves** by analysing SKU patterns, adding a `product_variant`
+  table that groups variants under a `product` and links each variant to the
+  relevant `supplier_product` offers. This is additive and won't change the
+  offer model above.

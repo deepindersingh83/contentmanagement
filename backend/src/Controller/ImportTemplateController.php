@@ -24,6 +24,7 @@ class ImportTemplateController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ImportTemplateRepository $templates,
+        private readonly \App\Repository\SupplierRepository $suppliers,
     ) {
     }
 
@@ -86,6 +87,16 @@ class ImportTemplateController extends AbstractController
         $template->setOwner($user);
         $template->setName($name);
         $template->setSupplier($this->nullableString($request->request->get('supplier')));
+
+        // Link to a Supplier record when provided (keeps the name string in sync).
+        $supplierId = $request->request->get('supplierId');
+        if ($supplierId !== null && $supplierId !== '') {
+            $supplier = $this->suppliers->find((int) $supplierId);
+            if ($supplier !== null) {
+                $template->setSupplierRef($supplier);
+                $template->setSupplier($supplier->getName());
+            }
+        }
         $template->setSource($source);
         $template->setSourceUrl($this->nullableString($request->request->get('sourceUrl')));
         $template->setFileFormat($fileFormat);
@@ -197,6 +208,7 @@ class ImportTemplateController extends AbstractController
         $copy->setOwner($user);
         $copy->setName($source->getName().' copy');
         $copy->setSupplier($source->getSupplier());
+        $copy->setSupplierRef($source->getSupplierRef());
         $copy->setSource($source->getSource());
         $copy->setSourceUrl($source->getSourceUrl());
         $copy->setFileFormat($source->getFileFormat());
@@ -292,6 +304,7 @@ class ImportTemplateController extends AbstractController
             'id' => $t->getId(),
             'name' => $t->getName(),
             'supplier' => $t->getSupplier(),
+            'supplierId' => $t->getSupplierRef()?->getId(),
             'source' => $t->getSource(),
             'sourceUrl' => $t->getSourceUrl(),
             'fileFormat' => $t->getFileFormat(),

@@ -25,6 +25,10 @@ class ImportTemplate
     #[ORM\Column(length: 150, nullable: true)]
     private ?string $supplier = null;
 
+    #[ORM\ManyToOne(targetEntity: Supplier::class)]
+    #[ORM\JoinColumn(name: 'supplier_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Supplier $supplierRef = null;
+
     /** direct | url | ftp | sftp */
     #[ORM\Column(length: 20)]
     private string $source = 'direct';
@@ -121,6 +125,18 @@ class ImportTemplate
     public function setSupplier(?string $supplier): static
     {
         $this->supplier = $supplier;
+
+        return $this;
+    }
+
+    public function getSupplierRef(): ?Supplier
+    {
+        return $this->supplierRef;
+    }
+
+    public function setSupplierRef(?Supplier $supplierRef): static
+    {
+        $this->supplierRef = $supplierRef;
 
         return $this;
     }

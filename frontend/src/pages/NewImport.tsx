@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { Link, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { suppliersApi } from '../api/suppliers'
 import {
   ArrowLeft,
   Sparkles,
@@ -12,7 +13,6 @@ import {
 } from 'lucide-react'
 import {
   importApi,
-  SUPPLIERS,
   DELIMITERS,
   type ImportSource,
   type ImportFormat,
@@ -82,7 +82,9 @@ export default function NewImport() {
   const [fileFormat, setFileFormat] = useState<ImportFormat>('xlsx')
   const [delimiter, setDelimiter] = useState(',')
   const [keyField, setKeyField] = useState<KeyField>('title')
-  const [supplier, setSupplier] = useState('')
+  const [supplierId, setSupplierId] = useState('')
+
+  const { data: suppliers } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersApi.list })
 
   // FTP / sFTP
   const [ftpServer, setFtpServer] = useState('')
@@ -125,7 +127,7 @@ export default function NewImport() {
 
     createMutation.mutate({
       name: name.trim(),
-      supplier: supplier || undefined,
+      supplierId: supplierId || undefined,
       source,
       sourceUrl: source === 'url' ? sourceUrl.trim() : undefined,
       fileFormat,
@@ -182,11 +184,14 @@ export default function NewImport() {
   )
 
   const supplierField = (
-    <Field label="Supplier">
-      <Select value={supplier} onChange={setSupplier}>
+    <Field
+      label="Supplier"
+      hint={<Link to="/suppliers" className="text-xs text-indigo-600 hover:underline">Manage</Link>}
+    >
+      <Select value={supplierId} onChange={setSupplierId}>
         <option value="">Select a supplier…</option>
-        {SUPPLIERS.map((s) => (
-          <option key={s} value={s}>{s}</option>
+        {(suppliers ?? []).map((s) => (
+          <option key={s.id} value={String(s.id)}>{s.name}</option>
         ))}
       </Select>
     </Field>

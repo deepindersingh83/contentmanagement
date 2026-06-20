@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { LayoutGrid, UserCog, LogOut, Upload } from 'lucide-react'
+import { LayoutGrid, UserCog, LogOut, Upload, Truck } from 'lucide-react'
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuthStore()
@@ -42,6 +42,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <nav className="hidden sm:flex items-center gap-1">
               {navItem('/', 'Dashboard', <LayoutGrid size={16} />)}
               {navItem('/import', 'Import', <Upload size={16} />)}
+              {navItem('/suppliers', 'Suppliers', <Truck size={16} />)}
               {navItem('/profile', 'Profile', <UserCog size={16} />)}
             </nav>
           </div>

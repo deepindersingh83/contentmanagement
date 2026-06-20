@@ -29,7 +29,7 @@ export interface ImportTemplate {
 
 export interface NewImportPayload {
   name: string
-  supplier?: string
+  supplierId?: string
   source: ImportSource
   sourceUrl?: string
   fileFormat: ImportFormat
@@ -75,7 +75,7 @@ export const importApi = {
       if (v !== undefined && v !== null && v !== '') form.append(k, v)
     }
     form.append('name', payload.name)
-    append('supplier', payload.supplier)
+    append('supplierId', payload.supplierId)
     form.append('source', payload.source)
     append('sourceUrl', payload.sourceUrl)
     form.append('fileFormat', payload.fileFormat)
@@ -124,21 +124,6 @@ export const importApi = {
     await apiClient.delete(`/import-templates/${id}`)
   },
 }
-
-// The 10 suppliers content is imported from. Rename these to your real
-// supplier names — they are the options shown in the import wizard.
-export const SUPPLIERS: string[] = [
-  'Supplier 1',
-  'Supplier 2',
-  'Supplier 3',
-  'Supplier 4',
-  'Supplier 5',
-  'Supplier 6',
-  'Supplier 7',
-  'Supplier 8',
-  'Supplier 9',
-  'Supplier 10',
-]
 
 export const DELIMITERS: { value: string; label: string }[] = [
   { value: ',', label: 'Comma  ( , )' },
