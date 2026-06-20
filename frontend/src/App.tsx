@@ -8,6 +8,7 @@ import Profile from './pages/Profile'
 import ImportList from './pages/ImportList'
 import NewImport from './pages/NewImport'
 import ImportSettings from './pages/ImportSettings'
+import ImportHistory from './pages/ImportHistory'
 import Suppliers from './pages/Suppliers'
 import Products from './pages/Products'
 import Offers from './pages/Offers'
@@ -56,6 +57,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <NewImport />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/import/history"
+          element={
+            <ProtectedRoute>
+              <ImportHistory />
             </ProtectedRoute>
           }
         />

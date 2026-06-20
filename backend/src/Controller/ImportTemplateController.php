@@ -214,6 +214,32 @@ class ImportTemplateController extends AbstractController
     }
 
     /**
+     * Set the schedule frequency (manual | hourly | daily | weekly) and compute
+     * the next run time.
+     */
+    #[Route('/{id}/schedule', name: 'api_import_templates_schedule', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    public function schedule(#[CurrentUser] ?User $user, ImportTemplate $template, Request $request): JsonResponse
+    {
+        if ($user === null || $template->getOwner()?->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = json_decode($request->getContent() ?: '{}', true) ?? [];
+        $freq = (string) ($data['scheduleFrequency'] ?? 'manual');
+        if (!in_array($freq, ['manual', 'hourly', 'daily', 'weekly'], true)) {
+            return $this->json(['message' => 'Invalid schedule frequency.'], 422);
+        }
+
+        $template->setScheduleFrequency($freq);
+        $interval = $template->intervalForSchedule();
+        $template->setNextRunAt($interval !== null ? (new \DateTimeImmutable())->add($interval) : null);
+        $this->em->flush();
+
+        return $this->json($this->serialize($template));
+    }
+
+    /**
      * Saves the field-to-column mapping built on the Import settings screen.
      */
     #[Route('/{id}/mapping', name: 'api_import_templates_mapping', methods: ['PUT'], requirements: ['id' => '\d+'])]
@@ -359,6 +385,9 @@ class ImportTemplateController extends AbstractController
             'ftpPassiveMode' => $t->isFtpPassiveMode(),
             'removeAfterImport' => $t->isRemoveAfterImport(),
             'mapping' => $t->getMapping(),
+            'scheduleFrequency' => $t->getScheduleFrequency(),
+            'lastRunAt' => $t->getLastRunAt()?->format(\DateTimeInterface::ATOM),
+            'nextRunAt' => $t->getNextRunAt()?->format(\DateTimeInterface::ATOM),
             'originalFilename' => $t->getOriginalFilename(),
             'createdAt' => $t->getCreatedAt()->format(\DateTimeInterface::ATOM),
         ];

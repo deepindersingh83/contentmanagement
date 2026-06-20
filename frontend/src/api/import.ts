@@ -23,8 +23,25 @@ export interface ImportTemplate {
   ftpPassiveMode: boolean
   removeAfterImport: boolean
   mapping: Record<string, unknown> | null
+  scheduleFrequency: 'manual' | 'hourly' | 'daily' | 'weekly'
+  lastRunAt: string | null
+  nextRunAt: string | null
   originalFilename: string | null
   createdAt: string
+}
+
+export interface ImportRunRecord {
+  id: number
+  template: { id: number; name: string } | null
+  supplier: { id: number; name: string } | null
+  status: 'success' | 'partial' | 'failed'
+  rowsTotal: number
+  rowsCreated: number
+  rowsUpdated: number
+  rowsMatched: number
+  rowsFailed: number
+  startedAt: string
+  finishedAt: string | null
 }
 
 export interface NewImportPayload {
@@ -76,6 +93,16 @@ export const importApi = {
 
   run: async (id: number): Promise<ImportRunResult> => {
     const response = await apiClient.post<ImportRunResult>(`/import-templates/${id}/run`)
+    return response.data
+  },
+
+  setSchedule: async (id: number, scheduleFrequency: string): Promise<ImportTemplate> => {
+    const response = await apiClient.put<ImportTemplate>(`/import-templates/${id}/schedule`, { scheduleFrequency })
+    return response.data
+  },
+
+  runs: async (limit = 30): Promise<ImportRunRecord[]> => {
+    const response = await apiClient.get<ImportRunRecord[]>('/import-runs', { params: { limit } })
     return response.data
   },
 

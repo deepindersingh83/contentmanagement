@@ -82,6 +82,16 @@ class ImportTemplate
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $mapping = null;
 
+    /** manual | hourly | daily | weekly */
+    #[ORM\Column(length: 20)]
+    private string $scheduleFrequency = 'manual';
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $lastRunAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $nextRunAt = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $originalFilename = null;
 
@@ -333,6 +343,52 @@ class ImportTemplate
         $this->mapping = $mapping;
 
         return $this;
+    }
+
+    public function getScheduleFrequency(): string
+    {
+        return $this->scheduleFrequency;
+    }
+
+    public function setScheduleFrequency(string $scheduleFrequency): static
+    {
+        $this->scheduleFrequency = $scheduleFrequency;
+
+        return $this;
+    }
+
+    public function getLastRunAt(): ?\DateTimeImmutable
+    {
+        return $this->lastRunAt;
+    }
+
+    public function setLastRunAt(?\DateTimeImmutable $lastRunAt): static
+    {
+        $this->lastRunAt = $lastRunAt;
+
+        return $this;
+    }
+
+    public function getNextRunAt(): ?\DateTimeImmutable
+    {
+        return $this->nextRunAt;
+    }
+
+    public function setNextRunAt(?\DateTimeImmutable $nextRunAt): static
+    {
+        $this->nextRunAt = $nextRunAt;
+
+        return $this;
+    }
+
+    public function intervalForSchedule(): ?\DateInterval
+    {
+        return match ($this->scheduleFrequency) {
+            'hourly' => new \DateInterval('PT1H'),
+            'daily' => new \DateInterval('P1D'),
+            'weekly' => new \DateInterval('P7D'),
+            default => null,
+        };
     }
 
     public function getOriginalFilename(): ?string

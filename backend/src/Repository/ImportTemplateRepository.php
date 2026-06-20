@@ -31,4 +31,19 @@ class ImportTemplateRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Scheduled templates whose next run is due (or never run).
+     *
+     * @return ImportTemplate[]
+     */
+    public function findDue(\DateTimeImmutable $now): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere("t.scheduleFrequency != 'manual'")
+            ->andWhere('t.nextRunAt IS NULL OR t.nextRunAt <= :now')
+            ->setParameter('now', $now)
+            ->getQuery()
+            ->getResult();
+    }
 }

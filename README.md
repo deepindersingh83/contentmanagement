@@ -84,3 +84,24 @@ php bin/console app:create-user admin@example.com "Password123" "Admin" --admin
 
 Users can later update their own profile and password from the in-app
 **Profile settings** page.
+
+## Scheduled imports
+
+Imports can be set to run `hourly` / `daily` / `weekly` on the Import list. A
+cron job triggers the due ones:
+
+```bash
+# run every import whose schedule is due
+php bin/console app:imports:run --due
+
+# or run a single import on demand
+php bin/console app:imports:run --id=42
+```
+
+Example crontab (every 15 minutes, as the web user):
+
+```cron
+*/15 * * * * cd /path/to/contentmanagement/backend && php bin/console app:imports:run --due >> var/log/imports.log 2>&1
+```
+
+Run results are recorded and visible under **Import → Run history**.
