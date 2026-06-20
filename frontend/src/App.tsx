@@ -9,6 +9,7 @@ import ImportList from './pages/ImportList'
 import NewImport from './pages/NewImport'
 import ImportSettings from './pages/ImportSettings'
 import Suppliers from './pages/Suppliers'
+import Products from './pages/Products'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -61,6 +62,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ImportSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/products"
+          element={
+            <ProtectedRoute>
+              <Products />
             </ProtectedRoute>
           }
         />
