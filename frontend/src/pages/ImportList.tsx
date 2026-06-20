@@ -77,10 +77,10 @@ export default function ImportList() {
               {templates.map((t) => (
                 <tr key={t.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 font-medium text-gray-800">
+                    <Link to={`/import/${t.id}/settings`} className="flex items-center gap-2 font-medium text-gray-800 hover:text-indigo-600">
                       <FileSpreadsheet size={16} className="text-indigo-500" />
                       {t.name}
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{t.supplier ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{SOURCE_LABELS[t.source] ?? t.source}</td>

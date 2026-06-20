@@ -105,7 +105,7 @@ export default function NewImport() {
 
   const createMutation = useMutation({
     mutationFn: importApi.create,
-    onSuccess: () => navigate('/import'),
+    onSuccess: (created) => navigate(`/import/${created.id}/settings`),
     onError: (e: any) => setError(e?.response?.data?.message ?? 'Could not save this import.'),
   })
 

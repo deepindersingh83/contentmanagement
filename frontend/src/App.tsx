@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import ImportList from './pages/ImportList'
 import NewImport from './pages/NewImport'
+import ImportSettings from './pages/ImportSettings'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -51,6 +52,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <NewImport />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/import/:id/settings"
+          element={
+            <ProtectedRoute>
+              <ImportSettings />
             </ProtectedRoute>
           }
         />

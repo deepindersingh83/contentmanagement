@@ -123,6 +123,67 @@ class ImportTemplateController extends AbstractController
     }
 
     /**
+     * Returns the column names detected from the uploaded source file, used to
+     * populate the field-mapping dropdowns on the Import settings screen.
+     * CSV is parsed directly; other formats need a parser and return [].
+     */
+    #[Route('/{id}/columns', name: 'api_import_templates_columns', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function columns(#[CurrentUser] ?User $user, ImportTemplate $template): JsonResponse
+    {
+        if ($user === null || $template->getOwner()?->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+
+        $columns = [];
+        $note = null;
+        $stored = $template->getStoredFilename();
+
+        if ($stored !== null && $template->getFileFormat() === 'csv') {
+            $path = $this->uploadDir().'/'.$stored;
+            if (is_file($path) && ($handle = fopen($path, 'r')) !== false) {
+                $delimiter = $template->getDelimiter() ?: ',';
+                if ($delimiter === '\t') {
+                    $delimiter = "\t";
+                }
+                $row = fgetcsv($handle, 0, $delimiter, '"', '\\');
+                fclose($handle);
+                if ($row !== false && $row !== null) {
+                    foreach ($row as $i => $value) {
+                        $value = trim((string) $value);
+                        $columns[] = $template->isFirstRowHeaders() && $value !== ''
+                            ? $value
+                            : 'Column '.($i + 1);
+                    }
+                }
+            }
+        } elseif ($template->getFileFormat() !== 'csv') {
+            $note = 'Automatic column detection currently supports CSV files.';
+        }
+
+        return $this->json(['columns' => $columns, 'note' => $note]);
+    }
+
+    /**
+     * Saves the field-to-column mapping built on the Import settings screen.
+     */
+    #[Route('/{id}/mapping', name: 'api_import_templates_mapping', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    public function saveMapping(#[CurrentUser] ?User $user, ImportTemplate $template, Request $request): JsonResponse
+    {
+        if ($user === null || $template->getOwner()?->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = json_decode($request->getContent() ?: '{}', true) ?? [];
+        $mapping = is_array($data['mapping'] ?? null) ? $data['mapping'] : [];
+
+        $template->setMapping($mapping);
+        $this->em->flush();
+
+        return $this->json($this->serialize($template));
+    }
+
+    /**
      * Duplicates an existing template (config only — not the stored file).
      */
     #[Route('/{id}/duplicate', name: 'api_import_templates_duplicate', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -151,6 +212,7 @@ class ImportTemplateController extends AbstractController
         $copy->setFtpPath($source->getFtpPath());
         $copy->setFtpPassiveMode($source->isFtpPassiveMode());
         $copy->setRemoveAfterImport($source->isRemoveAfterImport());
+        $copy->setMapping($source->getMapping());
 
         $this->em->persist($copy);
         $this->em->flush();
@@ -244,6 +306,7 @@ class ImportTemplateController extends AbstractController
             'ftpPath' => $t->getFtpPath(),
             'ftpPassiveMode' => $t->isFtpPassiveMode(),
             'removeAfterImport' => $t->isRemoveAfterImport(),
+            'mapping' => $t->getMapping(),
             'originalFilename' => $t->getOriginalFilename(),
             'createdAt' => $t->getCreatedAt()->format(\DateTimeInterface::ATOM),
         ];

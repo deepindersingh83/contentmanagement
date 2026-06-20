@@ -74,6 +74,10 @@ class ImportTemplate
     #[ORM\Column]
     private bool $removeAfterImport = false;
 
+    /** Field -> column / value mapping built on the Import settings (step 2) screen. */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $mapping = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $originalFilename = null;
 
@@ -297,6 +301,20 @@ class ImportTemplate
     public function setRemoveAfterImport(bool $removeAfterImport): static
     {
         $this->removeAfterImport = $removeAfterImport;
+
+        return $this;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getMapping(): ?array
+    {
+        return $this->mapping;
+    }
+
+    /** @param array<string, mixed>|null $mapping */
+    public function setMapping(?array $mapping): static
+    {
+        $this->mapping = $mapping;
 
         return $this;
     }

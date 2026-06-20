@@ -22,6 +22,7 @@ export interface ImportTemplate {
   ftpPath: string | null
   ftpPassiveMode: boolean
   removeAfterImport: boolean
+  mapping: Record<string, unknown> | null
   originalFilename: string | null
   createdAt: string
 }
@@ -50,6 +51,21 @@ export interface NewImportPayload {
 export const importApi = {
   list: async (): Promise<ImportTemplate[]> => {
     const response = await apiClient.get<ImportTemplate[]>('/import-templates')
+    return response.data
+  },
+
+  get: async (id: number): Promise<ImportTemplate> => {
+    const response = await apiClient.get<ImportTemplate>(`/import-templates/${id}`)
+    return response.data
+  },
+
+  columns: async (id: number): Promise<{ columns: string[]; note: string | null }> => {
+    const response = await apiClient.get(`/import-templates/${id}/columns`)
+    return response.data
+  },
+
+  saveMapping: async (id: number, mapping: Record<string, unknown>): Promise<ImportTemplate> => {
+    const response = await apiClient.put<ImportTemplate>(`/import-templates/${id}/mapping`, { mapping })
     return response.data
   },
 
