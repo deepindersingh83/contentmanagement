@@ -65,7 +65,13 @@ final class ImportRunner
         $updated = 0;
         $matched = 0;
         $failed = 0;
+        $productsCreated = 0;
         $preview = [];
+
+        /** @var array<int, Product> $affected products touched this run (by id) */
+        $affected = [];
+        /** @var array<string, Product> $matchCache barcode/sku -> product within this run */
+        $matchCache = [];
 
         foreach ($parsed['rows'] as $row) {
             // Skip blank rows.
@@ -135,16 +141,42 @@ final class ImportRunner
             $offer->setWeightGrams($weightGrams);
             $offer->setLastSeenAt(new \DateTimeImmutable());
 
+            // Match to an existing master product by barcode/GTIN.
             if ($offer->getProduct() === null && $barcode) {
-                $product = $this->products->findOneBy(['gtin' => $barcode]);
+                $product = $matchCache[$barcode]
+                    ?? $this->products->findOneBy(['gtin' => $barcode]);
                 if ($product instanceof Product) {
                     $offer->setProduct($product);
                     ++$matched;
                 }
             }
 
+            // Otherwise optionally create a master product from this offer.
+            if ($offer->getProduct() === null && $template->isAutoCreateProducts() && ($data['title'] !== null || $ref !== '')) {
+                $sku = $barcode ?: ($supplier->getCode().'-'.$ref);
+                $product = $matchCache[$sku] ?? $this->products->findOneBySku($sku);
+                if (!$product instanceof Product) {
+                    $product = new Product();
+                    $product->setSku($sku);
+                    $product->setGtin($barcode);
+                    $product->setTitle($data['title'] ?? $ref);
+                    $product->setStatus('draft');
+                    $this->em->persist($product);
+                    ++$productsCreated;
+                    if ($barcode) {
+                        $matchCache[$barcode] = $product;
+                    }
+                    $matchCache[$sku] = $product;
+                }
+                $offer->setProduct($product);
+            }
+
             $this->em->persist($offer);
             $isNew ? ++$created : ++$updated;
+
+            if ($offer->getProduct() !== null) {
+                $affected[spl_object_id($offer->getProduct())] = $offer->getProduct();
+            }
 
             if (($created + $updated) % 200 === 0) {
                 $this->em->flush();
@@ -157,6 +189,16 @@ final class ImportRunner
 
         $this->em->flush();
 
+        // Re-pick the primary offer per affected product and roll its data up
+        // into any empty product fields (non-destructive).
+        $primariesSet = 0;
+        foreach ($affected as $product) {
+            if ($this->repickPrimary($product)) {
+                ++$primariesSet;
+            }
+        }
+        $this->em->flush();
+
         $run = new ImportRun();
         $run->setTemplate($template);
         $run->setSupplier($supplier);
@@ -166,6 +208,7 @@ final class ImportRunner
         $run->setRowsMatched($matched);
         $run->setRowsFailed($failed);
         $run->setStatus($failed === 0 ? 'success' : ($created + $updated > 0 ? 'partial' : 'failed'));
+        $run->setMessage(sprintf('%d products auto-created; %d primary offers set.', $productsCreated, $primariesSet));
         $run->setFinishedAt(new \DateTimeImmutable());
         $this->em->persist($run);
         $this->em->flush();
@@ -179,7 +222,50 @@ final class ImportRunner
             'updated' => $updated,
             'matched' => $matched,
             'failed' => $failed,
+            'productsCreated' => $productsCreated,
+            'primariesSet' => $primariesSet,
         ];
+    }
+
+    /**
+     * Choose the primary offer for a product (in-stock + cheapest, falling back
+     * to cheapest overall) and fill empty product fields from it.
+     */
+    private function repickPrimary(Product $product): bool
+    {
+        /** @var \App\Entity\SupplierProduct[] $offers */
+        $offers = $this->offers->findBy(['product' => $product]);
+        if ($offers === []) {
+            return false;
+        }
+
+        $inStock = array_filter($offers, fn ($o) => $o->getStockQuantity() > 0);
+        $pool = $inStock !== [] ? $inStock : $offers;
+        usort($pool, fn ($a, $b) => (float) $a->getCostPrice() <=> (float) $b->getCostPrice());
+        $primary = $pool[0];
+
+        foreach ($offers as $offer) {
+            $offer->setIsPrimary($offer === $primary);
+        }
+
+        // Non-destructive roll-up: only fill fields that are currently empty.
+        if (($product->getTitle() === '' || $product->getTitle() === null) && $primary->getTitle()) {
+            $product->setTitle($primary->getTitle());
+        }
+        if ($product->getShortDescription() === null && $primary->getShortDescription() !== null) {
+            $product->setShortDescription($primary->getShortDescription());
+        }
+        if ($product->getLongDescription() === null && $primary->getLongDescription() !== null) {
+            $product->setLongDescription($primary->getLongDescription());
+        }
+        if ($product->getPrimaryImageUrl() === null && $primary->getImageUrl() !== null) {
+            $product->setPrimaryImageUrl($primary->getImageUrl());
+        }
+        if ($product->getWeightGrams() === null && $primary->getWeightGrams() !== null) {
+            $product->setWeightGrams($primary->getWeightGrams());
+        }
+
+        return true;
     }
 
     /**

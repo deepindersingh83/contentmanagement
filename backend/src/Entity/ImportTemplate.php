@@ -78,6 +78,10 @@ class ImportTemplate
     #[ORM\Column]
     private bool $removeAfterImport = false;
 
+    /** Create a master product for offers that don't match an existing one. */
+    #[ORM\Column]
+    private bool $autoCreateProducts = false;
+
     /** Field -> column / value mapping built on the Import settings (step 2) screen. */
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $mapping = null;
@@ -327,6 +331,18 @@ class ImportTemplate
     public function setRemoveAfterImport(bool $removeAfterImport): static
     {
         $this->removeAfterImport = $removeAfterImport;
+
+        return $this;
+    }
+
+    public function isAutoCreateProducts(): bool
+    {
+        return $this->autoCreateProducts;
+    }
+
+    public function setAutoCreateProducts(bool $autoCreateProducts): static
+    {
+        $this->autoCreateProducts = $autoCreateProducts;
 
         return $this;
     }

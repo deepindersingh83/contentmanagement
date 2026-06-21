@@ -106,6 +106,9 @@ export default function ImportSettings() {
         <p className="text-gray-800">
           Import <span className="font-medium">{r.status}</span> — {r.total} rows: {r.created} created, {r.updated} updated,{' '}
           {r.matched} matched to products, {r.failed} skipped.
+          {(r.productsCreated > 0 || r.primariesSet > 0) && (
+            <> {r.productsCreated} product(s) auto-created · {r.primariesSet} primary offer(s) set.</>
+          )}
         </p>,
       ),
     onError: (e: any) => setResult(<span className="text-red-700">{e?.response?.data?.message ?? 'Import failed.'}</span>),

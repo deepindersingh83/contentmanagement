@@ -54,6 +54,7 @@ export interface NewImportPayload {
   firstRowHeaders: boolean
   zipArchive: boolean
   importTranslations: boolean
+  autoCreateProducts?: boolean
   delimiter?: string
   ftpServer?: string
   ftpUsername?: string
@@ -128,6 +129,7 @@ export const importApi = {
     append('ftpPath', payload.ftpPath)
     if (payload.ftpPassiveMode !== undefined) form.append('ftpPassiveMode', String(payload.ftpPassiveMode))
     if (payload.removeAfterImport !== undefined) form.append('removeAfterImport', String(payload.removeAfterImport))
+    if (payload.autoCreateProducts !== undefined) form.append('autoCreateProducts', String(payload.autoCreateProducts))
     if (payload.file) form.append('file', payload.file)
 
     // Clear the JSON default so axios detects the FormData and sets the
@@ -187,6 +189,8 @@ export interface ImportRunResult {
   updated: number
   matched: number
   failed: number
+  productsCreated: number
+  primariesSet: number
 }
 
 export const DELIMITERS: { value: string; label: string }[] = [

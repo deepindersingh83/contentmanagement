@@ -148,6 +148,7 @@ class ImportTemplateController extends AbstractController
         $template->setFirstRowHeaders($this->boolParam($request, 'firstRowHeaders', true));
         $template->setZipArchive($this->boolParam($request, 'zipArchive', false));
         $template->setImportTranslations($this->boolParam($request, 'importTranslations', false));
+        $template->setAutoCreateProducts($this->boolParam($request, 'autoCreateProducts', false));
 
         // CSV delimiter (only relevant for csv).
         $template->setDelimiter($fileFormat === 'csv' ? $this->nullableString($request->request->get('delimiter')) : null);
@@ -289,6 +290,7 @@ class ImportTemplateController extends AbstractController
         $copy->setFtpPath($source->getFtpPath());
         $copy->setFtpPassiveMode($source->isFtpPassiveMode());
         $copy->setRemoveAfterImport($source->isRemoveAfterImport());
+        $copy->setAutoCreateProducts($source->isAutoCreateProducts());
         $copy->setMapping($source->getMapping());
 
         $this->em->persist($copy);
@@ -384,6 +386,7 @@ class ImportTemplateController extends AbstractController
             'ftpPath' => $t->getFtpPath(),
             'ftpPassiveMode' => $t->isFtpPassiveMode(),
             'removeAfterImport' => $t->isRemoveAfterImport(),
+            'autoCreateProducts' => $t->isAutoCreateProducts(),
             'mapping' => $t->getMapping(),
             'scheduleFrequency' => $t->getScheduleFrequency(),
             'lastRunAt' => $t->getLastRunAt()?->format(\DateTimeInterface::ATOM),

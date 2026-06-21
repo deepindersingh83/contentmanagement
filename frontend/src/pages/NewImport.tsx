@@ -99,6 +99,7 @@ export default function NewImport() {
   const [removeAfterImport, setRemoveAfterImport] = useState(false)
   const [zipArchive, setZipArchive] = useState(false)
   const [importTranslations, setImportTranslations] = useState(false)
+  const [autoCreateProducts, setAutoCreateProducts] = useState(false)
 
   const [error, setError] = useState('')
 
@@ -135,6 +136,7 @@ export default function NewImport() {
       firstRowHeaders,
       zipArchive,
       importTranslations,
+      autoCreateProducts,
       delimiter: isCsv ? delimiter : undefined,
       ftpServer: isFtp ? ftpServer.trim() : undefined,
       ftpUsername: isFtp ? ftpUsername.trim() : undefined,
@@ -348,6 +350,10 @@ export default function NewImport() {
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" className="accent-indigo-600" checked={importTranslations} onChange={(e) => setImportTranslations(e.target.checked)} />
             Import translations
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" className="accent-indigo-600" checked={autoCreateProducts} onChange={(e) => setAutoCreateProducts(e.target.checked)} />
+            Auto-create products for unmatched offers
           </label>
         </div>
 
