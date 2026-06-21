@@ -1,0 +1,48 @@
+# Example nginx configuration for app.gamingdesktop.com.au
+#
+# Layout on disk (CloudPanel-style):
+#   /home/app/htdocs/app.gamingdesktop.com.au/
+#     └── contentmanagement/
+#         ├── frontend/   (deploy ONLY the built dist/: index.html + assets/)
+#         └── backend/    (Symfony app; public/index.php is the front controller)
+#
+# Goal:
+#   /contentmanagement/frontend/   -> static SPA (Vite build)
+#   /api/...                       -> Symfony backend (same origin, so no CORS)
+#
+# Add the two blocks below INTO your existing `server { ... }` for this site.
+# `^~` gives these prefixes priority over the generic `location /`.
+#
+# IMPORTANT: set `fastcgi_pass` to THIS site's PHP-FPM socket. Find it with:
+#   grep -rR fastcgi_pass /etc/nginx/ | grep -i gamingdesktop
+# (CloudPanel uses a per-site socket, e.g. unix:/run/php/php8.4-fpm-app.sock)
+
+# ---- Symfony API (same-origin) ----------------------------------------------
+location ^~ /api/ {
+    alias /home/app/htdocs/app.gamingdesktop.com.au/contentmanagement/backend/public/;
+
+    # Serve real files (none under /api), otherwise hand off to the front controller.
+    try_files $uri @symfony_api;
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;   # <-- adjust to this site's socket
+        fastcgi_param SCRIPT_FILENAME /home/app/htdocs/app.gamingdesktop.com.au/contentmanagement/backend/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;          # empty Symfony base path -> pathInfo keeps the /api prefix
+        fastcgi_param DOCUMENT_ROOT /home/app/htdocs/app.gamingdesktop.com.au/contentmanagement/backend/public;
+    }
+}
+
+location @symfony_api {
+    include fastcgi_params;
+    fastcgi_pass unix:/run/php/php8.4-fpm.sock;        # <-- same socket as above
+    fastcgi_param SCRIPT_FILENAME /home/app/htdocs/app.gamingdesktop.com.au/contentmanagement/backend/public/index.php;
+    fastcgi_param SCRIPT_NAME /index.php;
+    fastcgi_param REQUEST_URI $request_uri;            # must stay /api/auth/login so Symfony routing matches
+    fastcgi_param DOCUMENT_ROOT /home/app/htdocs/app.gamingdesktop.com.au/contentmanagement/backend/public;
+}
+
+# ---- Frontend SPA fallback (deep links / refresh) ---------------------------
+location ^~ /contentmanagement/frontend/ {
+    try_files $uri $uri/ /contentmanagement/frontend/index.html;
+}

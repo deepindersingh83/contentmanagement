@@ -1,0 +1,202 @@
+import apiClient from './client'
+
+export type ImportSource = 'direct' | 'url' | 'ftp' | 'sftp'
+export type ImportFormat = 'xlsx' | 'xls' | 'csv' | 'xml'
+export type KeyField = 'title' | 'sku' | 'barcode' | 'model' | 'id'
+
+export interface ImportTemplate {
+  id: number
+  name: string
+  supplier: string | null
+  source: ImportSource
+  sourceUrl: string | null
+  fileFormat: ImportFormat
+  keyField: KeyField
+  firstRowHeaders: boolean
+  zipArchive: boolean
+  importTranslations: boolean
+  delimiter: string | null
+  ftpServer: string | null
+  ftpUsername: string | null
+  ftpPort: number | null
+  ftpPath: string | null
+  ftpPassiveMode: boolean
+  removeAfterImport: boolean
+  mapping: Record<string, unknown> | null
+  scheduleFrequency: 'manual' | 'hourly' | 'daily' | 'weekly'
+  lastRunAt: string | null
+  nextRunAt: string | null
+  originalFilename: string | null
+  createdAt: string
+}
+
+export interface ImportRunRecord {
+  id: number
+  template: { id: number; name: string } | null
+  supplier: { id: number; name: string } | null
+  status: 'success' | 'partial' | 'failed'
+  rowsTotal: number
+  rowsCreated: number
+  rowsUpdated: number
+  rowsMatched: number
+  rowsFailed: number
+  startedAt: string
+  finishedAt: string | null
+}
+
+export interface NewImportPayload {
+  name: string
+  supplierId?: string
+  source: ImportSource
+  sourceUrl?: string
+  fileFormat: ImportFormat
+  keyField: KeyField
+  firstRowHeaders: boolean
+  zipArchive: boolean
+  importTranslations: boolean
+  autoCreateProducts?: boolean
+  delimiter?: string
+  ftpServer?: string
+  ftpUsername?: string
+  ftpPassword?: string
+  ftpPort?: string
+  ftpPath?: string
+  ftpPassiveMode?: boolean
+  removeAfterImport?: boolean
+  file?: File | null
+}
+
+export const importApi = {
+  list: async (): Promise<ImportTemplate[]> => {
+    const response = await apiClient.get<ImportTemplate[]>('/import-templates')
+    return response.data
+  },
+
+  get: async (id: number): Promise<ImportTemplate> => {
+    const response = await apiClient.get<ImportTemplate>(`/import-templates/${id}`)
+    return response.data
+  },
+
+  columns: async (id: number): Promise<{ columns: string[]; note: string | null }> => {
+    const response = await apiClient.get(`/import-templates/${id}/columns`)
+    return response.data
+  },
+
+  saveMapping: async (id: number, mapping: Record<string, unknown>): Promise<ImportTemplate> => {
+    const response = await apiClient.put<ImportTemplate>(`/import-templates/${id}/mapping`, { mapping })
+    return response.data
+  },
+
+  test: async (id: number): Promise<ImportTestResult> => {
+    const response = await apiClient.post<ImportTestResult>(`/import-templates/${id}/test`)
+    return response.data
+  },
+
+  run: async (id: number): Promise<ImportRunResult> => {
+    const response = await apiClient.post<ImportRunResult>(`/import-templates/${id}/run`)
+    return response.data
+  },
+
+  setSchedule: async (id: number, scheduleFrequency: string): Promise<ImportTemplate> => {
+    const response = await apiClient.put<ImportTemplate>(`/import-templates/${id}/schedule`, { scheduleFrequency })
+    return response.data
+  },
+
+  runs: async (limit = 30): Promise<ImportRunRecord[]> => {
+    const response = await apiClient.get<ImportRunRecord[]>('/import-runs', { params: { limit } })
+    return response.data
+  },
+
+  create: async (payload: NewImportPayload): Promise<ImportTemplate> => {
+    const form = new FormData()
+    const append = (k: string, v: string | undefined | null) => {
+      if (v !== undefined && v !== null && v !== '') form.append(k, v)
+    }
+    form.append('name', payload.name)
+    append('supplierId', payload.supplierId)
+    form.append('source', payload.source)
+    append('sourceUrl', payload.sourceUrl)
+    form.append('fileFormat', payload.fileFormat)
+    form.append('keyField', payload.keyField)
+    form.append('firstRowHeaders', String(payload.firstRowHeaders))
+    form.append('zipArchive', String(payload.zipArchive))
+    form.append('importTranslations', String(payload.importTranslations))
+    append('delimiter', payload.delimiter)
+    append('ftpServer', payload.ftpServer)
+    append('ftpUsername', payload.ftpUsername)
+    append('ftpPassword', payload.ftpPassword)
+    append('ftpPort', payload.ftpPort)
+    append('ftpPath', payload.ftpPath)
+    if (payload.ftpPassiveMode !== undefined) form.append('ftpPassiveMode', String(payload.ftpPassiveMode))
+    if (payload.removeAfterImport !== undefined) form.append('removeAfterImport', String(payload.removeAfterImport))
+    if (payload.autoCreateProducts !== undefined) form.append('autoCreateProducts', String(payload.autoCreateProducts))
+    if (payload.file) form.append('file', payload.file)
+
+    // Clear the JSON default so axios detects the FormData and sets the
+    // multipart Content-Type *with boundary* itself.
+    const response = await apiClient.post<ImportTemplate>('/import-templates', form, {
+      headers: { 'Content-Type': undefined },
+    })
+    return response.data
+  },
+
+  duplicate: async (id: number): Promise<ImportTemplate> => {
+    const response = await apiClient.post<ImportTemplate>(`/import-templates/${id}/duplicate`)
+    return response.data
+  },
+
+  download: async (id: number, name: string): Promise<void> => {
+    const response = await apiClient.get(`/import-templates/${id}/download`, {
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(response.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${name.replace(/[^A-Za-z0-9._-]+/g, '_')}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
+
+  remove: async (id: number): Promise<void> => {
+    await apiClient.delete(`/import-templates/${id}`)
+  },
+}
+
+export interface ImportPreviewRow {
+  supplierRefCode: string
+  title: string | null
+  costPrice: string | null
+  stockQuantity: number
+  weightGrams: string | null
+  willMatchProduct: boolean
+}
+
+export interface ImportTestResult {
+  dryRun: true
+  total: number
+  failed: number
+  preview: ImportPreviewRow[]
+}
+
+export interface ImportRunResult {
+  dryRun: false
+  runId: number
+  status: 'success' | 'partial' | 'failed'
+  total: number
+  created: number
+  updated: number
+  matched: number
+  failed: number
+  productsCreated: number
+  primariesSet: number
+}
+
+export const DELIMITERS: { value: string; label: string }[] = [
+  { value: ',', label: 'Comma  ( , )' },
+  { value: ';', label: 'Semicolon  ( ; )' },
+  { value: '\t', label: 'Tab' },
+  { value: '|', label: 'Pipe  ( | )' },
+  { value: ' ', label: 'Space' },
+]
